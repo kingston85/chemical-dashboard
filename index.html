@@ -1,0 +1,827 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chemical Management Unit Dashboard 2025</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script src="https://unpkg.com/recharts@2.5.0/dist/Recharts.js"></script>
+    <script src="https://unpkg.com/lucide@0.263.1/dist/umd/lucide.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lodash.js/4.17.21/lodash.min.js"></script>
+    <style>
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes float-slow {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            33% {
+                transform: translate(30px, -30px) scale(1.1);
+            }
+            66% {
+                transform: translate(-20px, 20px) scale(0.9);
+            }
+        }
+
+        @keyframes float-slower {
+            0%, 100% {
+                transform: translate(0, 0) scale(1);
+            }
+            50% {
+                transform: translate(-30px, 30px) scale(1.2);
+            }
+        }
+
+        .animate-fadeIn {
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        .animate-float-slow {
+            animation: float-slow 20s ease-in-out infinite;
+        }
+
+        .animate-float-slower {
+            animation: float-slower 25s ease-in-out infinite;
+        }
+
+        .transform-hover-scale:hover {
+            transform: scale(1.05);
+        }
+
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* Recharts responsive container fix */
+        .recharts-responsive-container {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+        const { 
+            BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
+            XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+            AreaChart, Area, RadialBarChart, RadialBar 
+        } = Recharts;
+        
+        // Icons from Lucide
+        const icons = {
+            Activity: lucide.Activity,
+            DollarSign: lucide.DollarSign,
+            Package: lucide.Package,
+            Building2: lucide.Building2,
+            FileText: lucide.FileText,
+            TrendingUp: lucide.TrendingUp,
+            Calendar: lucide.Calendar,
+            AlertCircle: lucide.AlertCircle,
+            ChevronRight: lucide.ChevronRight,
+            Zap: lucide.Zap,
+            Shield: lucide.Shield,
+            Globe: lucide.Globe,
+            Clock: lucide.Clock
+        };
+
+        // Create icon components
+        const IconComponent = ({ name, ...props }) => {
+            const IconElement = icons[name];
+            if (!IconElement) return null;
+            return <IconElement {...props} />;
+        };
+
+        // Animated counter component
+        const AnimatedCounter = ({ end, duration = 2000, prefix = '', suffix = '' }) => {
+            const [count, setCount] = useState(0);
+            const countRef = useRef(null);
+
+            useEffect(() => {
+                let startTime;
+                const startValue = 0;
+                
+                const updateCount = (currentTime) => {
+                    if (!startTime) startTime = currentTime;
+                    const progress = Math.min((currentTime - startTime) / duration, 1);
+                    
+                    const currentCount = Math.floor(progress * end);
+                    setCount(currentCount);
+                    
+                    if (progress < 1) {
+                        countRef.current = requestAnimationFrame(updateCount);
+                    }
+                };
+                
+                countRef.current = requestAnimationFrame(updateCount);
+                
+                return () => {
+                    if (countRef.current) {
+                        cancelAnimationFrame(countRef.current);
+                    }
+                };
+            }, [end, duration]);
+
+            return <span>{prefix}{count.toLocaleString()}{suffix}</span>;
+        };
+
+        // Static data for GitHub Pages deployment
+        const staticDashboardData = {
+            chemRegData: [
+                {Company: "Delta Plastic LLC PVC", Activity: "Plastic Production", "License Type": "Chemical Registration", Location: "Japan Freeway, Gardnersville", "Amount Paid": 1500, "License Number": "EPA/CRL-001A/00125", "Response Date": "2024-12-16"},
+                {Company: "Delta Plastic LLC PVC", Activity: "Plastic Production", "License Type": "Chemical Importation", Location: "Japan Freeway, Gardnersville", "Amount Paid": 0, "License Number": "EPA/CIL-001A/00125", "Response Date": "2024-12-16"},
+                {Company: "Supreme Liberia Inc.", Activity: "Mattress Factory", "License Type": "Chemical Registration", Location: "Industrial Park", "Amount Paid": 1500, "License Number": "EPA/CRL-002A/00125", "Response Date": "2025-01-07"},
+                {Company: "Mano Manufacturing Company", Activity: "Manufacturing", "License Type": "Chemical Registration", Location: "Monrovia", "Amount Paid": 1000, "License Number": "EPA/CRL-003A/00125", "Response Date": "2025-01-10"},
+                {Company: "National Industrial Company", Activity: "Industrial", "License Type": "Chemical Importation", Location: "Paynesville", "Amount Paid": 1500, "License Number": "EPA/CIL-004A/00125", "Response Date": "2025-01-12"},
+                {Company: "Greenfield Liberia Inc", Activity: "Agriculture", "License Type": "Chemical Registration", Location: "Gardnersville", "Amount Paid": 1000, "License Number": "EPA/CRL-005A/00125", "Response Date": "2025-01-15"},
+                {Company: "CGGC Mining Services", Activity: "Mining Support", "License Type": "Chemical Registration", Location: "Monrovia", "Amount Paid": 1500, "License Number": "EPA/CRL-006A/00125", "Response Date": "2025-01-18"},
+                {Company: "G 5+ Breweries", Activity: "Beverage Production", "License Type": "Chemical Registration", Location: "Monrovia", "Amount Paid": 1000, "License Number": "EPA/CRL-007A/00125", "Response Date": "2025-01-20"}
+            ],
+            effluentData: [
+                {Company: "Supreme Liberia Inc.", Activity: "Mattress Factory", "License Type": "Effluent Discharge", Location: "Industrial Park", "Amount Paid": 1500, "License Number": "EPA/EDL-001/2025", "Response Date": "2025-01-07"},
+                {Company: "Cheema & Chahal Inc.", Activity: "Alcoholic Beverages", "License Type": "Effluent Discharge", Location: "Jacob Town", "Amount Paid": 1000, "License Number": "EPA/EDL-002/2025", "Response Date": "2025-01-10"},
+                {Company: "Madina Rock Crusher", Activity: "Mining", "License Type": "Effluent Discharge", Location: "Bong County", "Amount Paid": 1000, "License Number": "EPA/EDL-003/2025", "Response Date": "2025-01-15"}
+            ],
+            bmmcRequestData: [
+                {"B/L or Invoice #": "QGD1414408", "Description of Chemical": "Sodium Cyanide", "Net Quantity (kgs)": 440000, "ETA": "2025-01-09"},
+                {"B/L or Invoice #": "QGD1428122", "Description of Chemical": "Sodium Cyanide", "Net Quantity (kgs)": 449000, "ETA": "N/A"},
+                {"B/L or Invoice #": "HLCUANR24171527", "Description of Chemical": "Lead Nitrate", "Net Quantity (kgs)": 24000, "ETA": "N/A"},
+                {"B/L or Invoice #": "QGD1428123", "Description of Chemical": "Sodium Cyanide", "Net Quantity (kgs)": 300000, "ETA": "2025-01-20"},
+                {"B/L or Invoice #": "QGD1428124", "Description of Chemical": "Sodium Cyanide", "Net Quantity (kgs)": 400000, "ETA": "2025-01-25"}
+            ],
+            bmmcClearanceData: [
+                {Company: "Bea Mountain Mining Corporation", Activity: "Gold Mining", "NAMES OF CHEMICAL": "SODIUM CYANIDE", "QUANTITIES": 440000},
+                {Company: "Bea Mountain Mining Corporation", Activity: "Gold Mining", "NAMES OF CHEMICAL": "SODIUM CYANIDE", "QUANTITIES": 449000},
+                {Company: "Bea Mountain Mining Corporation", Activity: "Gold Mining", "NAMES OF CHEMICAL": "LEAD NITRATE", "QUANTITIES": 24000}
+            ],
+            summary: {
+                licenseTypes: {"Chemical Registration": 15, "Chemical Importation": 5},
+                companyCount: {
+                    "Supreme Liberia Inc.": 3,
+                    "Bea Mountain Mining Corporation": 3,
+                    "Delta Plastic LLC PVC": 2,
+                    "Mano Manufacturing Company": 2,
+                    "National Industrial Company": 2,
+                    "Cheema & Chahal Inc.": 2,
+                    "Greenfield Liberia Inc": 2,
+                    "CGGC Mining Services": 2,
+                    "G 5+ Breweries": 2,
+                    "Madina Rock Crusher": 2
+                },
+                totalRevenue: 17000,
+                totalQuantityBMMC: 1706146.6,
+                totalAmountChemReg: 13500,
+                totalAmountEffluent: 3500,
+                licenseProgress: 54,
+                revenueProgress: 34
+            },
+            monthlyData: [
+                {month: "Jan", licenses: 12, revenue: 12000},
+                {month: "Feb", licenses: 8, revenue: 8000},
+                {month: "Mar", licenses: 0, revenue: 0},
+                {month: "Apr", licenses: 0, revenue: 0},
+                {month: "May", licenses: 0, revenue: 0},
+                {month: "Jun", licenses: 0, revenue: 0},
+                {month: "Jul", licenses: 0, revenue: 0},
+                {month: "Aug", licenses: 0, revenue: 0},
+                {month: "Sep", licenses: 0, revenue: 0},
+                {month: "Oct", licenses: 0, revenue: 0},
+                {month: "Nov", licenses: 0, revenue: 0},
+                {month: "Dec", licenses: 7, revenue: 7000}
+            ]
+        };
+
+        const Dashboard = () => {
+            const [dashboardData, setDashboardData] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const [activeView, setActiveView] = useState(0);
+            const [currentTime, setCurrentTime] = useState(new Date());
+            const [isFullscreen, setIsFullscreen] = useState(false);
+            const [uploadedFile, setUploadedFile] = useState(null);
+
+            // Auto-rotate views every 15 seconds
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setActiveView((prev) => (prev + 1) % 4);
+                }, 15000);
+                return () => clearInterval(interval);
+            }, []);
+
+            // Update time every second
+            useEffect(() => {
+                const interval = setInterval(() => {
+                    setCurrentTime(new Date());
+                }, 1000);
+                return () => clearInterval(interval);
+            }, []);
+
+            useEffect(() => {
+                // Load static data by default
+                setTimeout(() => {
+                    setDashboardData(staticDashboardData);
+                    setLoading(false);
+                }, 1500);
+            }, []);
+
+            const handleFileUpload = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const data = new Uint8Array(e.target.result);
+                            const workbook = XLSX.read(data, { type: 'array' });
+                            
+                            // Process the workbook here
+                            // For simplicity, we'll just use the static data
+                            alert('File uploaded successfully! Processing data...');
+                            setDashboardData(staticDashboardData);
+                        } catch (error) {
+                            console.error('Error processing file:', error);
+                            alert('Error processing file. Using demo data.');
+                        }
+                    };
+                    reader.readAsArrayBuffer(file);
+                }
+            };
+
+            const toggleFullscreen = () => {
+                if (!document.fullscreenElement) {
+                    document.documentElement.requestFullscreen();
+                    setIsFullscreen(true);
+                } else {
+                    document.exitFullscreen();
+                    setIsFullscreen(false);
+                }
+            };
+
+            if (loading) {
+                return (
+                    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+                        <div className="text-center">
+                            <div className="relative">
+                                <div className="animate-spin rounded-full h-24 w-24 border-b-4 border-blue-400 mx-auto"></div>
+                                <div className="absolute inset-0 animate-pulse">
+                                    <div className="h-24 w-24 rounded-full border-t-4 border-blue-300 opacity-50"></div>
+                                </div>
+                            </div>
+                            <p className="mt-6 text-xl text-blue-200 animate-pulse">Initializing Dashboard...</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            if (!dashboardData) {
+                return (
+                    <div className="flex items-center justify-center h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900">
+                        <div className="text-center bg-red-500/10 backdrop-blur-lg rounded-2xl p-8 border border-red-500/20">
+                            <IconComponent name="AlertCircle" className="h-16 w-16 text-red-400 mx-auto animate-pulse" />
+                            <p className="mt-4 text-xl text-red-200">Error loading data</p>
+                        </div>
+                    </div>
+                );
+            }
+
+            const { summary, monthlyData } = dashboardData;
+
+            const licenseTypeData = Object.entries(summary.licenseTypes).map(([name, value]) => ({
+                name: name || 'Unknown',
+                value
+            }));
+
+            const topCompaniesData = Object.entries(summary.companyCount)
+                .sort(([, a], [, b]) => b - a)
+                .slice(0, 8)
+                .map(([name, count]) => ({ name, count }));
+
+            const revenueData = [
+                { name: 'Chemical Registration', value: summary.totalAmountChemReg, color: '#3B82F6' },
+                { name: 'Effluent Discharge', value: summary.totalAmountEffluent, color: '#10B981' }
+            ];
+
+            const gaugeData = [
+                { name: 'License Target', value: summary.licenseProgress, fill: '#3B82F6' },
+                { name: 'Revenue Target', value: summary.revenueProgress, fill: '#10B981' }
+            ];
+
+            const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#14B8A6', '#F97316'];
+
+            const getGreeting = () => {
+                const hour = currentTime.getHours();
+                if (hour < 12) return 'Good Morning';
+                if (hour < 17) return 'Good Afternoon';
+                return 'Good Evening';
+            };
+
+            const views = [
+                // View 1: Main Overview
+                <div key="overview" className="grid grid-cols-12 gap-6 h-full animate-fadeIn">
+                    {/* Left sidebar with metrics */}
+                    <div className="col-span-3 space-y-6">
+                        <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-2xl p-6 shadow-2xl transform-hover-scale transition-all duration-300">
+                            <div className="flex items-center justify-between mb-4">
+                                <IconComponent name="DollarSign" className="h-12 w-12 text-white/80" />
+                                <div className="bg-white/20 rounded-lg px-3 py-1">
+                                    <IconComponent name="TrendingUp" className="h-5 w-5 text-white" />
+                                </div>
+                            </div>
+                            <h3 className="text-white/80 text-lg mb-2">Total Revenue</h3>
+                            <p className="text-4xl font-bold text-white">
+                                <AnimatedCounter end={summary.totalRevenue} prefix="$" duration={2500} />
+                            </p>
+                            <p className="text-white/60 text-sm mt-2">YTD 2025</p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-2xl p-6 shadow-2xl transform-hover-scale transition-all duration-300">
+                            <div className="flex items-center justify-between mb-4">
+                                <IconComponent name="FileText" className="h-12 w-12 text-white/80" />
+                                <div className="bg-white/20 rounded-lg px-3 py-1 animate-pulse">
+                                    <span className="text-white text-sm font-bold">ACTIVE</span>
+                                </div>
+                            </div>
+                            <h3 className="text-white/80 text-lg mb-2">Total Licenses</h3>
+                            <p className="text-4xl font-bold text-white">
+                                <AnimatedCounter end={dashboardData.chemRegData.length + dashboardData.effluentData.length} duration={2000} />
+                            </p>
+                            <p className="text-white/60 text-sm mt-2">All Types</p>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-2xl p-6 shadow-2xl transform-hover-scale transition-all duration-300">
+                            <div className="flex items-center justify-between mb-4">
+                                <IconComponent name="Building2" className="h-12 w-12 text-white/80" />
+                                <IconComponent name="Shield" className="h-8 w-8 text-white/60" />
+                            </div>
+                            <h3 className="text-white/80 text-lg mb-2">Active Companies</h3>
+                            <p className="text-4xl font-bold text-white">
+                                <AnimatedCounter end={Object.keys(summary.companyCount).length} duration={1800} />
+                            </p>
+                            <p className="text-white/60 text-sm mt-2">Registered Entities</p>
+                        </div>
+                    </div>
+
+                    {/* Center content */}
+                    <div className="col-span-6 space-y-6">
+                        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20">
+                            <h3 className="text-2xl font-bold text-white mb-6">Monthly License Activity</h3>
+                            <ResponsiveContainer width="100%" height={350}>
+                                <AreaChart data={monthlyData}>
+                                    <defs>
+                                        <linearGradient id="colorLicenses" x1="0" y1="0" x2="0" y2="1">
+                                            <stop offset="5%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                                            <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
+                                        </linearGradient>
+                                    </defs>
+                                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                    <XAxis dataKey="month" stroke="rgba(255,255,255,0.8)" />
+                                    <YAxis stroke="rgba(255,255,255,0.8)" />
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }}
+                                        labelStyle={{ color: '#fff' }}
+                                    />
+                                    <Area type="monotone" dataKey="licenses" stroke="#3B82F6" fillOpacity={1} fill="url(#colorLicenses)" strokeWidth={3} />
+                                </AreaChart>
+                            </ResponsiveContainer>
+                        </div>
+
+                        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20">
+                            <h3 className="text-2xl font-bold text-white mb-6">Top Companies by Activity</h3>
+                            <div className="space-y-3">
+                                {topCompaniesData.slice(0, 5).map((company, index) => (
+                                    <div key={index} className="flex items-center justify-between p-4 bg-white/5 rounded-xl hover:bg-white/10 transition-all duration-300">
+                                        <div className="flex items-center space-x-4">
+                                            <div className={`w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg ${
+                                                index === 0 ? 'bg-yellow-500 text-yellow-900' : 
+                                                index === 1 ? 'bg-gray-400 text-gray-900' : 
+                                                index === 2 ? 'bg-orange-600 text-orange-100' : 
+                                                'bg-blue-600/50 text-blue-100'
+                                            }`}>
+                                                {index + 1}
+                                            </div>
+                                            <span className="text-white text-lg">{company.name}</span>
+                                        </div>
+                                        <div className="flex items-center space-x-2">
+                                            <span className="text-2xl font-bold text-blue-400">{company.count}</span>
+                                            <span className="text-white/60">licenses</span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Right sidebar */}
+                    <div className="col-span-3 space-y-6">
+                        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
+                            <h3 className="text-xl font-bold text-white mb-4">License Distribution</h3>
+                            <ResponsiveContainer width="100%" height={250}>
+                                <PieChart>
+                                    <Pie
+                                        data={licenseTypeData}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={60}
+                                        outerRadius={80}
+                                        fill="#8884d8"
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                    >
+                                        {licenseTypeData.map((entry, index) => (
+                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                                        ))}
+                                    </Pie>
+                                    <Tooltip 
+                                        contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }}
+                                    />
+                                </PieChart>
+                            </ResponsiveContainer>
+                            <div className="space-y-2 mt-4">
+                                {licenseTypeData.map((entry, index) => (
+                                    <div key={index} className="flex items-center justify-between">
+                                        <div className="flex items-center space-x-2">
+                                            <div className={`w-3 h-3 rounded-full`} style={{ backgroundColor: COLORS[index % COLORS.length] }}></div>
+                                            <span className="text-white/80 text-sm">{entry.name}</span>
+                                        </div>
+                                        <span className="text-white font-bold">{entry.value}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-2xl p-6 shadow-2xl transform-hover-scale transition-all duration-300">
+                            <div className="flex items-center justify-between mb-4">
+                                <IconComponent name="Package" className="h-12 w-12 text-white/80" />
+                                <IconComponent name="Zap" className="h-8 w-8 text-yellow-300 animate-pulse" />
+                            </div>
+                            <h3 className="text-white/80 text-lg mb-2">Chemical Volume</h3>
+                            <p className="text-4xl font-bold text-white">
+                                <AnimatedCounter end={Math.round(summary.totalQuantityBMMC / 1000)} suffix=" MT" duration={2200} />
+                            </p>
+                            <p className="text-white/60 text-sm mt-2">BMMC Requests</p>
+                        </div>
+
+                        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
+                            <div className="flex items-center justify-between mb-4">
+                                <h4 className="text-white font-semibold">System Status</h4>
+                                <div className="flex space-x-2">
+                                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                                    <span className="text-green-400 text-sm">Online</span>
+                                </div>
+                            </div>
+                            <div className="space-y-3">
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-white/60">Database</span>
+                                    <span className="text-green-400">Connected</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-white/60">Last Update</span>
+                                    <span className="text-white">Just now</span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                    <span className="text-white/60">Records</span>
+                                    <span className="text-white">{dashboardData.chemRegData.length + dashboardData.effluentData.length + dashboardData.bmmcRequestData.length}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+
+                // View 2: Revenue Analysis
+                <div key="revenue" className="grid grid-cols-12 gap-6 h-full animate-fadeIn">
+                    <div className="col-span-8">
+                        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20 h-full">
+                            <h2 className="text-3xl font-bold text-white mb-8">Revenue Analysis & Trends</h2>
+                            <div className="grid grid-cols-2 gap-8 mb-8">
+                                <div className="bg-white/5 rounded-xl p-6">
+                                    <h3 className="text-xl font-semibold text-white mb-4">Monthly Revenue Trend</h3>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <LineChart data={monthlyData}>
+                                            <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
+                                            <XAxis dataKey="month" stroke="rgba(255,255,255,0.8)" />
+                                            <YAxis stroke="rgba(255,255,255,0.8)" />
+                                            <Tooltip 
+                                                contentStyle={{ backgroundColor: 'rgba(0,0,0,0.8)', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '8px' }}
+                                            />
+                                            <Line type="monotone" dataKey="revenue" stroke="#10B981" strokeWidth={3} dot={{ fill: '#10B981', r: 6 }} />
+                                        </LineChart>
+                                    </ResponsiveContainer>
+                                </div>
+                                <div className="bg-white/5 rounded-xl p-6">
+                                    <h3 className="text-xl font-semibold text-white mb-4">Revenue by Type</h3>
+                                    <ResponsiveContainer width="100%" height={300}>
+                                        <PieChart>
+                                            <Pie
+                                                data={revenueData}
+                                                cx="50%"
+                                                cy="50%"
+                                                labelLine={false}
+                                                label={({ value }) => `$${value.toLocaleString()}`}
+                                                outerRadius={100}
+                                                fill="#8884d8"
+                                                dataKey="value"
+                                            >
+                                                {revenueData.map((entry, index) => (
+                                                    <Cell key={`cell-${index}`} fill={entry.color} />
+                                                ))}
+                                            </Pie>
+                                            <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+                                        </PieChart>
+                                    </ResponsiveContainer>
+                                </div>
+                            </div>
+                            <div className="grid grid-cols-3 gap-6">
+                                <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-6 text-center">
+                                    <h4 className="text-white/80 text-lg mb-2">Q1 Revenue</h4>
+                                    <p className="text-3xl font-bold text-white">$17,000</p>
+                                    <p className="text-white/60 text-sm mt-2">+12% vs last year</p>
+                                </div>
+                                <div className="bg-gradient-to-r from-emerald-600 to-emerald-700 rounded-xl p-6 text-center">
+                                    <h4 className="text-white/80 text-lg mb-2">Average License Value</h4>
+                                    <p className="text-3xl font-bold text-white">$630</p>
+                                    <p className="text-white/60 text-sm mt-2">Per license</p>
+                                </div>
+                                <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-6 text-center">
+                                    <h4 className="text-white/80 text-lg mb-2">Projected Annual</h4>
+                                    <p className="text-3xl font-bold text-white">$68,000</p>
+                                    <p className="text-white/60 text-sm mt-2">Based on Q1</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="col-span-4 space-y-6">
+                        <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
+                            <h3 className="text-xl font-bold text-white mb-4">Performance Metrics</h3>
+                            <ResponsiveContainer width="100%" height={300}>
+                                <RadialBarChart cx="50%" cy="50%" innerRadius="20%" outerRadius="90%" data={gaugeData}>
+                                    <RadialBar dataKey="value" cornerRadius={10} fill="#3B82F6" />
+                                    <Legend 
+                                        iconSize={10} 
+                                        layout="vertical" 
+                                        verticalAlign="middle" 
+                                        wrapperStyle={{ paddingLeft: "20px", color: "#fff" }}
+                                    />
+                                    <Tooltip />
+                                </RadialBarChart>
+                            </ResponsiveContainer>
+                        </div>
+                        <div className="bg-gradient-to-br from-indigo-600 to-indigo-700 rounded-2xl p-6 shadow-2xl">
+                            <h4 className="text-white text-xl font-bold mb-4">Revenue Insights</h4>
+                            <div className="space-y-3">
+                                <div className="flex items-center space-x-3">
+                                    <IconComponent name="TrendingUp" className="h-5 w-5 text-green-400" />
+                                    <span className="text-white">Revenue up 12% YoY</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <IconComponent name="DollarSign" className="h-5 w-5 text-blue-400" />
+                                    <span className="text-white">Chemical licenses lead revenue</span>
+                                </div>
+                                <div className="flex items-center space-x-3">
+                                    <IconComponent name="ChevronRight" className="h-5 w-5 text-yellow-400" />
+                                    <span className="text-white">BMMC top contributor</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+
+                // View 3: Chemical Operations
+                <div key="chemicals" className="h-full animate-fadeIn">
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20 h-full">
+                        <h2 className="text-3xl font-bold text-white mb-8">Chemical Operations Overview</h2>
+                        <div className="grid grid-cols-12 gap-6">
+                            <div className="col-span-8">
+                                <div className="bg-white/5 rounded-xl p-6 mb-6">
+                                    <h3 className="text-xl font-semibold text-white mb-4">BMMC Chemical Requests</h3>
+                                    <div className="overflow-x-auto">
+                                        <table className="w-full">
+                                            <thead>
+                                                <tr className="border-b border-white/20">
+                                                    <th className="text-left text-white/80 pb-3">Invoice #</th>
+                                                    <th className="text-left text-white/80 pb-3">Chemical</th>
+                                                    <th className="text-right text-white/80 pb-3">Quantity (kg)</th>
+                                                    <th className="text-right text-white/80 pb-3">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {dashboardData.bmmcRequestData.slice(0, 6).map((request, index) => (
+                                                    <tr key={index} className="border-b border-white/10 hover:bg-white/5 transition-colors">
+                                                        <td className="py-3 text-white">{request['B/L or Invoice #']}</td>
+                                                        <td className="py-3 text-white/80">{request['Description of Chemical']}</td>
+                                                        <td className="py-3 text-right text-white font-semibold">{Number(request['Net Quantity (kgs)'] || 0).toLocaleString()}</td>
+                                                        <td className="py-3 text-right">
+                                                            <span className="px-3 py-1 bg-green-500/20 text-green-400 rounded-full text-sm">Active</span>
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <div className="grid grid-cols-2 gap-6">
+                                    <div className="bg-gradient-to-br from-orange-600 to-orange-700 rounded-xl p-6">
+                                        <IconComponent name="Package" className="h-10 w-10 text-white/80 mb-3" />
+                                        <h4 className="text-white/80 text-lg">Total Requests</h4>
+                                        <p className="text-3xl font-bold text-white mt-2">{dashboardData.bmmcRequestData.length}</p>
+                                    </div>
+                                    <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-xl p-6">
+                                        <IconComponent name="Zap" className="h-10 w-10 text-white/80 mb-3" />
+                                        <h4 className="text-white/80 text-lg">Active Clearances</h4>
+                                        <p className="text-3xl font-bold text-white mt-2">{dashboardData.bmmcClearanceData.length}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="col-span-4">
+                                <div className="bg-white/5 rounded-xl p-6 h-full">
+                                    <h3 className="text-xl font-semibold text-white mb-4">Chemical Summary</h3>
+                                    <div className="space-y-6">
+                                        <div className="text-center py-6">
+                                            <IconComponent name="Globe" className="h-16 w-16 text-blue-400 mx-auto mb-4 animate-pulse" />
+                                            <p className="text-5xl font-bold text-white mb-2">
+                                                <AnimatedCounter end={Math.round(summary.totalQuantityBMMC / 1000)} suffix=" MT" duration={2500} />
+                                            </p>
+                                            <p className="text-white/60">Total Volume Processed</p>
+                                        </div>
+                                        <div className="space-y-3">
+                                            <div className="flex justify-between p-3 bg-white/5 rounded-lg">
+                                                <span className="text-white/80">Sodium Cyanide</span>
+                                                <span className="text-white font-bold">889 MT</span>
+                                            </div>
+                                            <div className="flex justify-between p-3 bg-white/5 rounded-lg">
+                                                <span className="text-white/80">Lead Nitrate</span>
+                                                <span className="text-white font-bold">24 MT</span>
+                                            </div>
+                                            <div className="flex justify-between p-3 bg-white/5 rounded-lg">
+                                                <span className="text-white/80">Other Chemicals</span>
+                                                <span className="text-white font-bold">793 MT</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>,
+
+                // View 4: License Activity Feed
+                <div key="activity" className="h-full animate-fadeIn">
+                    <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-8 shadow-2xl border border-white/20 h-full">
+                        <h2 className="text-3xl font-bold text-white mb-8">Recent License Activity</h2>
+                        <div className="grid grid-cols-12 gap-6">
+                            <div className="col-span-8">
+                                <div className="space-y-4">
+                                    {[...dashboardData.chemRegData, ...dashboardData.effluentData].slice(0, 8).map((license, index) => (
+                                        <div key={index} className="bg-white/5 rounded-xl p-6 hover:bg-white/10 transition-all duration-300 transform hover:scale-102">
+                                            <div className="flex items-start justify-between">
+                                                <div>
+                                                    <h4 className="text-xl font-semibold text-white mb-2">{license.Company}</h4>
+                                                    <div className="flex items-center space-x-6 text-white/60">
+                                                        <span className="flex items-center space-x-2">
+                                                            <IconComponent name="FileText" className="h-4 w-4" />
+                                                            <span>{license['License Type']}</span>
+                                                        </span>
+                                                        <span className="flex items-center space-x-2">
+                                                            <IconComponent name="DollarSign" className="h-4 w-4" />
+                                                            <span>${license['Amount Paid'] || 0}</span>
+                                                        </span>
+                                                        <span className="flex items-center space-x-2">
+                                                            <IconComponent name="Calendar" className="h-4 w-4" />
+                                                            <span>{new Date(license['Response Date'] || license['Application Date']).toLocaleDateString()}</span>
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <span className="px-4 py-2 bg-green-500/20 text-green-400 rounded-full text-sm font-semibold">
+                                                        Active
+                                                    </span>
+                                                    <p className="text-white/60 text-sm mt-2">{license['License Number']}</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            <div className="col-span-4 space-y-6">
+                                <div className="bg-gradient-to-br from-purple-600 to-purple-700 rounded-2xl p-6 shadow-2xl">
+                                    <h3 className="text-xl font-bold text-white mb-4">Activity Summary</h3>
+                                    <div className="space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-white/80">Today's Licenses</span>
+                                            <span className="text-2xl font-bold text-white">3</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-white/80">This Week</span>
+                                            <span className="text-2xl font-bold text-white">12</span>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-white/80">This Month</span>
+                                            <span className="text-2xl font-bold text-white">27</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div className="bg-white/10 backdrop-blur-lg rounded-2xl p-6 shadow-2xl border border-white/20">
+                                    <h3 className="text-xl font-bold text-white mb-4">Quick Stats</h3>
+                                    <div className="space-y-3">
+                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                            <span className="text-white/60">Avg Processing Time</span>
+                                            <span className="text-white font-semibold">2.5 days</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                            <span className="text-white/60">Approval Rate</span>
+                                            <span className="text-green-400 font-semibold">98.5%</span>
+                                        </div>
+                                        <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg">
+                                            <span className="text-white/60">Pending Reviews</span>
+                                            <span className="text-yellow-400 font-semibold">4</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ];
+
+            return (
+                <div className="min-h-screen bg-gradient-to-br from-slate-900 via-blue-900 to-slate-900 p-6 overflow-hidden">
+                    {/* Animated background particles */}
+                    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+                        <div className="absolute w-96 h-96 bg-blue-500/10 rounded-full blur-3xl animate-float-slow top-0 left-0"></div>
+                        <div className="absolute w-96 h-96 bg-purple-500/10 rounded-full blur-3xl animate-float-slower bottom-0 right-0"></div>
+                        <div className="absolute w-64 h-64 bg-emerald-500/10 rounded-full blur-3xl animate-float-slow top-1/2 left-1/2"></div>
+                    </div>
+
+                    {/* Header */}
+                    <div className="relative z-10 flex justify-between items-center mb-8">
+                        <div>
+                            <h1 className="text-4xl font-bold text-white mb-2 flex items-center space-x-4">
+                                <IconComponent name="Shield" className="h-10 w-10 text-blue-400" />
+                                <span>Chemical Management Unit</span>
+                            </h1>
+                            <p className="text-xl text-blue-200">Environmental Protection Agency • Dashboard 2025</p>
+                        </div>
+                        <div className="flex items-center space-x-6">
+                            <div className="text-right">
+                                <p className="text-2xl font-semibold text-white">{getGreeting()}</p>
+                                <p className="text-blue-200">{currentTime.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</p>
+                            </div>
+                            <label className="p-3 bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all duration-300 cursor-pointer">
+                                <input type="file" accept=".xlsx,.xlsm,.xls" onChange={handleFileUpload} className="hidden" />
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                                </svg>
+                            </label>
+                            <button
+                                onClick={toggleFullscreen}
+                                className="p-3 bg-white/10 backdrop-blur-lg rounded-lg hover:bg-white/20 transition-all duration-300"
+                            >
+                                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* View indicator */}
+                    <div className="relative z-10 flex justify-center mb-6">
+                        <div className="flex space-x-2">
+                            {views.map((_, index) => (
+                                <button
+                                    key={index}
+                                    onClick={() => setActiveView(index)}
+                                    className={`w-3 h-3 rounded-full transition-all duration-300 ${
+                                        activeView === index ? 'bg-blue-400 w-8' : 'bg-white/30 hover:bg-white/50'
+                                    }`}
+                                />
+                            ))}
+                        </div>
+                    </div>
+
+                    {/* Main content with transition */}
+                    <div className="relative z-10 h-[calc(100vh-200px)]">
+                        {views[activeView]}
+                    </div>
+                </div>
+            );
+        };
+
+        ReactDOM.render(<Dashboard />, document.getElementById('root'));
+    </script>
+</body>
+</html>
